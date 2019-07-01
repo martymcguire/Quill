@@ -18,9 +18,10 @@
               </div>
               <div class="reply-content">
                 <img src="" class="post-img hidden">
-                <div class="author"><div class="syndications"></div><span class="name"></span> <span class="url"></span></div>
-                <h4 class="post-name hidden"></h4>
-                <span class="content"></span>
+                <div class="author"><div class="syndications"></div><span class="name" contenteditable></span> <span class="url" contenteditable></span></div>
+                <div class="post-date" contenteditable></div>
+                <h4 class="post-name hidden" contenteditable></h4>
+                <span class="content" contenteditable></span>
               </div>
             </div>
           </div>
@@ -282,6 +283,10 @@
 .reply-context img.post-img {
   float: right;
   width: 200px;
+}
+.reply-context .post-date {
+  color: #777;
+  font-size: 0.9em;
 }
 
 </style>
@@ -647,6 +652,12 @@ $(function(){
         } else {
           $(".reply-context .reply-author").addClass("hidden");
         }
+        if(data.entry.published) {
+          $(".reply-context .post-date").text(data.entry.published);
+          $(".reply-context .post-date").removeClass("hidden");
+        } else {
+          $(".reply-context .post-date").addClass("hidden");
+        }
         if(data.entry.photo) {
           $(".reply-context img.post-img").attr('src', data.entry.photo[0]).removeClass('hidden');
         } else {
@@ -702,6 +713,7 @@ $(function(){
     var entry = {};
     var doMultipart = false;
     var hasAltText = false;
+    var hasCite = false;
 
     if(v=$("#note_name").val()) {
       formData.append("name", v);
@@ -712,8 +724,62 @@ $(function(){
       entry['content'] = [v];
     }
     if(v=$("#note_in_reply_to").val()) {
+      var hasCiteAuthor = false;
+      var hasCiteProps = false;
       formData.append("in-reply-to", v);
-      entry['in-reply-to'] = [v];
+      // FIXME: check a setting to see if the user only wants URLs
+      // or if they accept h-cites
+      var citeProps = { 'url': [v] };
+      var citeAuthorProps = {};
+      if(w=$(".reply-context .content").text()) {
+        citeProps['content'] = [w];
+        hasCiteProps = true;
+      }
+      if(w=$(".reply-context .post-name").text()) {
+        citeProps['name'] = [w];
+        hasCiteProps = true;
+      }
+	  if(w=$(".reply-context .post-date").text()) {
+		citeProps['published'] = [w];
+		hasCiteProps = true;
+	  }
+      if(w=$(".reply-context .author .name").text()) {
+        citeAuthorProps['name'] = [w];
+        hasAuthorProps = true;
+      }
+      if(w=$(".reply-context .author .url").text()) {
+        citeAuthorProps['url'] = [w];
+        hasAuthorProps = true;
+      }
+      if(w=$(".reply-context img.author-img").attr('src')) {
+        citeAuthorProps['photo'] = [w];
+        hasAuthorProps = true;
+      }
+      if(hasAuthorProps) {
+        citeProps['author'] = [ {
+          'type': 'h-card',
+          'properties': citeAuthorProps
+        } ];
+        hasCiteProps = true;
+      }
+	  // FIXME: multiple photos?
+      if(w=$(".reply-context img.post-img").attr('src')) {
+        citeProps['photo'] = [w];
+        hasCiteProps = true;
+      }
+      // FIXME: include syndication links?
+
+      if(hasCiteProps) {
+	    // TODO: should *everything* be an h-cite? what about events?
+        hasCite = true;
+        entry['in-reply-to'] = [{
+          'type': ['h-cite'],
+          'properties': citeProps
+        }];
+      } else {
+        entry['in-reply-to'] = [v];
+      }
+      console.log(entry, hasAuthorProps, hasCiteProps, hasCite);
     }
     if(v=$("#note_location").val()) {
       formData.append("location", v);
@@ -781,7 +847,8 @@ $(function(){
     formData.append("null","null");
 
     $("#btn_post").addClass("loading disabled").text("Working...");
-    if(doMultipart || !hasAltText) {
+    console.log(doMultipart, !hasAltText, !hasCite);
+    if((doMultipart || !hasAltText) && !hasCite) {
       var request = new XMLHttpRequest();
       request.open("POST", "/micropub/multipart");
       request.onreadystatechange = function() {
