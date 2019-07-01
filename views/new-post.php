@@ -779,7 +779,6 @@ $(function(){
       } else {
         entry['in-reply-to'] = [v];
       }
-      console.log(entry, hasAuthorProps, hasCiteProps, hasCite);
     }
     if(v=$("#note_location").val()) {
       formData.append("location", v);
@@ -847,7 +846,6 @@ $(function(){
     formData.append("null","null");
 
     $("#btn_post").addClass("loading disabled").text("Working...");
-    console.log(doMultipart, !hasAltText, !hasCite);
     if((doMultipart || !hasAltText) && !hasCite) {
       var request = new XMLHttpRequest();
       request.open("POST", "/micropub/multipart");
